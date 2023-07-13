@@ -1,0 +1,54 @@
+library(ggplot2)
+library(matrixStats)
+library(animation)
+
+lod = read.csv("daily_ice_edge.csv")
+lod  <- data.frame(lod)
+lod_bez_dat <- lod[,-1]
+lod_bez_dat <- as.matrix(lod_bez_dat)
+
+
+lod_min <- colMins(lod_bez_dat)
+lod_min <- lod_min[1:360]
+katy <- c(0:359)
+lod_min_df <- data.frame(lon = katy, lat = lod_min)
+
+ggplot(lod_min_df, aes(x = lon, y = lat)) +
+  geom_path() +
+  coord_polar() +
+  labs(x = 'Longtitude', y = 'Latitude', title = 'Minimalny zasieg lodu na Antarktydzie') +
+  scale_x_continuous(breaks = seq(0, 360, 30)) +
+  ylim(-90, -50)
+#1)
+saveGIF({
+  i <- 1
+  prog_bar <- txtProgressBar(min=0,max=1000,style=3)
+  krok <- 0
+  while ( i < 1000) {
+    long_i <- lod_bez_dat[i,]
+    long_i <- long_i[1:360]
+    long_i <- as.matrix(long_i)
+    lod_granice_real <- data.frame(lon = katy, lat = long_i)
+    long_mat <- sin( 2 * pi * lod_granice_real[,1] / 180 )
+    long_mat <- as.matrix(long_mat)
+    lat_mat <- sin( 2 * pi * lod_granice_real[,2] / 180 )
+    lat_mat <- as.matrix(lat_mat)
+    lat_lm <- lm(lod_granice_real[,2]~long_mat+lat_mat)
+    lat_predict <- predict(lat_lm)
+    lat_predict <- as.matrix(lat_predict)
+    granice_lodu_mat <- data.frame(lon = katy, lat = lat_predict)
+    print(ggplot(lod_granice_real, aes(x = lon, y = lat,col="Rzeczywisty zasięg")) +
+      geom_path() +
+      coord_polar() +
+      labs(x = 'Longtitude', y = 'Latitude', title = lod[i,1]) +
+      geom_line(data = lod_min_df, aes(x=lon,y=lat,col="Minimalny zasięg")) +
+      geom_line(data = granice_lodu_mat, aes(x=lon,y=lat,col="Matematyczny zasięg")) +
+      scale_x_continuous(breaks = seq(0, 360, 30)) +
+      ylim(-90, -50))
+    
+    i=i+1
+    krok <- krok+1
+    setTxtProgressBar( prog_bar, krok)
+  }
+}, interval = 0.01)
+
